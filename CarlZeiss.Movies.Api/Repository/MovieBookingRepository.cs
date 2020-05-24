@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using CarlZeiss.Movies.Api.Models;
@@ -45,11 +46,12 @@ namespace CarlZeiss.Movies.Api.Repository
 
         public async Task<IEnumerable<Show>> GetShows(int multiplexId)
         {
-            return await _context.Shows
+            var result = await _context.Shows
+                                 .Where(m => m.MultiplexId == multiplexId && IsDateAfterOrToday(m.ShowDate))
                                  .Include(m => m.Movie)
                                  .Include(m => m.Multiplex)
-                                 .Where(m => m.MultiplexId == multiplexId && m.ShowDate.Date >= DateTime.Today.Date)
                                  .ToListAsync();
+            return result;
         }
 
         public async Task<IEnumerable<Booking>> GetBookings(int userId)
@@ -65,7 +67,7 @@ namespace CarlZeiss.Movies.Api.Repository
         {
             var bookingList = await _context.Bookings.Where(s => s.ShowId.Equals(showId)).Select(s => s.Id).ToListAsync();
             var bookedSeats = await _context.BookedSeats.Where(s => bookingList.Contains(s.BookingId)).Select(s => s.SeatId).ToListAsync();
-            return await _context.MasterSeats.Where(x => !bookedSeats.Contains(x.Id)).ToListAsync();
+            return await _context.MasterSeats.Where(x => !bookedSeats.Contains(x.Id) && x.MultiplexId.Equals(multiplexId)).ToListAsync();
 
 
         }
@@ -82,12 +84,26 @@ namespace CarlZeiss.Movies.Api.Repository
 
         public async Task<Booking> GetBooking(int bookingId)
         {
-            return await _context.Bookings.FirstOrDefaultAsync(x => x.Id.Equals(bookingId));
+            return await _context.Bookings
+                                .Include(p => p.Show).ThenInclude(x => x.Movie)
+                                .Include(p => p.Show).ThenInclude(x => x.Multiplex)
+                                .Include(p => p.Seats)
+                                .FirstOrDefaultAsync(x => x.Id.Equals(bookingId));
         }
 
         public async Task<SeatMaster> GetSeat(int seatId)
         {
             return await _context.MasterSeats.FirstOrDefaultAsync(x => x.Id.Equals(seatId));
+        }
+
+        public static bool IsDateAfterOrToday(DateTime input)
+        {
+            //DateTime pDate;
+            //if (!DateTime.TryParseExact(input, "MM/dd/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out pDate))
+            //{
+            //    return false;
+            //}
+            return DateTime.Now.Date <= input.Date;
         }
     }
 }

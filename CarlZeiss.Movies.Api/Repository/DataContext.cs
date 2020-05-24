@@ -30,6 +30,7 @@ namespace CarlZeiss.Movies.Api.Repository
             builder.Entity<Show>()
                 .Property(p => p.ShowDate)
                 .HasColumnType("date");
+
             builder.Entity<BookedSeat>()
                 .HasKey(k => k.BookingId);
 
@@ -50,6 +51,10 @@ namespace CarlZeiss.Movies.Api.Repository
                .WithMany(p => p.Bookings)
                .HasForeignKey(k => k.ShowId)
                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Booking>()
+                .Property(p => p.BookingDate)
+                .HasColumnType("datetime");
 
         }
     }

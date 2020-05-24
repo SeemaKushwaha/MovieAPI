@@ -12,7 +12,7 @@ namespace CarlZeiss.Movies.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = Role.Admin)]
+    [Authorize(Roles = Role.User + "," + Role.Admin)]
 
     public class ValuesController : ControllerBase
     {
@@ -44,8 +44,9 @@ namespace CarlZeiss.Movies.Api.Controllers
         [HttpGet("seats/{multiplxId}/{movieId}")]
         public async Task<IActionResult> GetSeats(int multiplxId, int movieId)
         {
-            var movies = await _repo.GetShows(multiplxId);
-            return Ok(movies);
+            var seatsFromRepo = await _repo.GetSeats(multiplxId,movieId);
+            var seatsToReturn = _mapper.Map<List<SeatDto>>(seatsFromRepo);
+            return Ok(seatsToReturn);
         }
     }
 }

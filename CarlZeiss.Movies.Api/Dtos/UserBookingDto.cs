@@ -1,4 +1,5 @@
-﻿using CarlZeiss.Movies.Api.Models;
+﻿using CarlZeiss.Movies.Api.Helpers;
+using CarlZeiss.Movies.Api.Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -14,19 +15,21 @@ namespace CarlZeiss.Movies.Api.Dtos
             BookingDate = DateTime.Now;
         }
 
-        [Required]
         public int UserId { get; set; }
 
-        [StringLength(5, MinimumLength = 1, ErrorMessage = "Maximum 5 seats can be booked")]
+        [ListValidation]
         public List<SeatDto> Seat { get; set; }
 
-        [Required]
+        [Required(ErrorMessage ="Show id is required")]
+        [IntValidation]
         public int ShowId { get; set; }
 
-        [Required]
+        [Required(ErrorMessage = "Multiplex id is required")]
+        [IntValidation]
         public int MultiplexId { get; set; }
 
-        [Required]
+        [Required(ErrorMessage = "Date of booking is required")]
+        [DataType(DataType.DateTime, ErrorMessage = "Date field is invalid")]
         public DateTime BookingDate { get; set; }
     }
 }

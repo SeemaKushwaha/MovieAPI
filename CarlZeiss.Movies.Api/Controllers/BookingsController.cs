@@ -8,6 +8,7 @@ using CarlZeiss.Movies.Api.Dtos;
 using CarlZeiss.Movies.Api.Helpers;
 using CarlZeiss.Movies.Api.Models;
 using CarlZeiss.Movies.Api.Repository;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,6 +16,7 @@ namespace CarlZeiss.Movies.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = Role.User)]
     public class BookingsController : ControllerBase
     {
         private readonly IMovieBookingRepository _repo;
@@ -27,20 +29,31 @@ namespace CarlZeiss.Movies.Api.Controllers
 
         // GET api/bookings/
         [HttpGet(Name = "GetBooking")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> GetBookings()
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-
             var userBookingFromRepo = await _repo.GetBookings(userId);
-            var userBookingToReturn = _mapper.Map<UserBookingReturnDto>(userBookingFromRepo);
+            if(userBookingFromRepo == null)
+            {
+                return NoContent();
+            }
 
+            var userBookingToReturn = _mapper.Map<List<UserBookingReturnDto>>(userBookingFromRepo);
             return Ok(userBookingToReturn);
         }
 
-        [HttpGet(Name = "GetBookingById")]
+        [HttpGet("{id}", Name = "GetBookingById")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> GetBookings(int id)
         {
             var userBookingFromRepo = await _repo.GetBooking(id);
+            if(userBookingFromRepo == null)
+            {
+                return NoContent();
+            }
             var userBookingToReturn = _mapper.Map<UserBookingReturnDto>(userBookingFromRepo);
 
             return Ok(userBookingToReturn);
@@ -48,35 +61,43 @@ namespace CarlZeiss.Movies.Api.Controllers
 
         [HttpPost]
         [ValidateModel]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> BookMovie(UserBookingDto bookingDetails)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-
-            //if (!ModelState.IsValid)
-            //{
-            //    return BadRequest(ModelState.AddModelError();
-            //}
+            bookingDetails.UserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+            
             if(await _repo.GetShow(bookingDetails.ShowId) == null || await _repo.GetMultiplexe(bookingDetails.MultiplexId) == null)
             {
-                return BadRequest("Show not found");
+                return NotFound("Selected Show not found");
             }
 
-            var SeatList = _mapper.Map<IEnumerable<SeatDto>>(await _repo.GetSeats(bookingDetails.MultiplexId, bookingDetails.ShowId));
+            var availableSeats = _mapper.Map<IEnumerable<SeatDto>>(await _repo.GetSeats(bookingDetails.MultiplexId, bookingDetails.ShowId));
             
-            if(bookingDetails.Seat.Intersect(SeatList).Count() == bookingDetails.Seat.Count())
+            if(!bookingDetails.Seat.All(x => availableSeats.Any(y => x.SeatId == y.SeatId)))
             {
-                return BadRequest("Seats not available");
+                return NotFound("Selected seats are not available");
             }
 
             var bookingToRepo = _mapper.Map<Booking>(bookingDetails);
             _repo.Add(bookingToRepo);
 
-            var bookedSeatsToRepo = _mapper.Map<BookedSeat>(bookingDetails.Seat);
-            _repo.Add(bookingToRepo);
-
-            if(await _repo.SaveAll())
+            if (await _repo.SaveAll())
             {
-                return CreatedAtRoute("GetBookingById", new { controller = "Bookings", userId = bookingToRepo.Id }, bookingToRepo);
+                var bookedSeatsToRepo = _mapper.Map<List<BookedSeat>>(bookingDetails.Seat);
+                foreach (var bookedSeatToRepo in bookedSeatsToRepo)
+                {
+                    bookedSeatToRepo.BookingId = bookingToRepo.Id;
+                    _repo.Add(bookedSeatToRepo);
+                }
+
+                var bookingReturnDto = _mapper.Map<UserBookingReturnDto>(bookingToRepo);
+
+                if (await _repo.SaveAll())
+                {
+                    return CreatedAtRoute("GetBookingById", new { controller = "Bookings", id = bookingToRepo.Id }, bookingReturnDto);
+                }
             }
 
             throw new Exception("Booking cannot be completed");

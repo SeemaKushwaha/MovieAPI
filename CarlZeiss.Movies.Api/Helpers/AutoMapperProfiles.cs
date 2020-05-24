@@ -14,11 +14,16 @@ namespace CarlZeiss.Movies.Api.Helpers
             CreateMap<UserBookingDto, Booking>();
             CreateMap<Booking, UserBookingReturnDto>();
 
-            CreateMap<SeatDto, SeatMaster>().ReverseMap();
-            CreateMap<SeatDto, BookedSeat>().ReverseMap();
+            CreateMap<SeatMaster, SeatDto>()
+                .ForMember(dest => dest.SeatId, opt => opt
+               .MapFrom(src => src.Id))
+               .ReverseMap();
+            CreateMap<SeatDto, BookedSeat>()
+                .ReverseMap();
 
-            CreateMap<Show, ShowDetailsReturnDto>();
-            CreateMap<ShowDetailsDto, Show>();
+            CreateMap<Show, ShowDetailsReturnDto>().ReverseMap();
+            CreateMap<ShowDetailsDto, Show>().ReverseMap();
+            CreateMap<ShowDetailsDto, Movie>().ReverseMap();
 
         }
     }

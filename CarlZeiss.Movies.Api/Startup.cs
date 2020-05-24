@@ -18,6 +18,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNet.OData.Extensions;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNet.OData.Formatter;
+using System.Net.Http.Headers;
+using Newtonsoft.Json;
 
 namespace CarlZeiss.Movies.Api
 {
@@ -33,19 +36,16 @@ namespace CarlZeiss.Movies.Api
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddDbContext<DataContext>(x => x.UseSqlite(Configuration.GetConnectionString("DefaultConnection")));
-            //services.AddControllers().AddNewtonsoftJson(opt => {
-            //    opt.SerializerSettings.ReferenceLoopHandling =
-            //    Newtonsoft.Json.ReferenceLoopHandling.Ignore;
-            //});
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
+            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2).AddJsonOptions(options =>
+            {
+                options.SerializerSettings.Formatting = Formatting.Indented;
+                options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+            }); ;
             services.AddAutoMapper(typeof(MovieBookingRepository).Assembly);
             services.AddScoped<IAuthRepository, AuthRepository>();
             services.AddScoped<IMovieBookingRepository, MovieBookingRepository>();
+
             services.AddOData();
-            services.AddSwaggerGen(c =>
-            {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Movies API", Version = "v1" });
-            });
 
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {
 
@@ -71,18 +71,13 @@ namespace CarlZeiss.Movies.Api
                 // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
-
-            app.UseSwagger();
             
-            app.UseSwaggerUI(c =>
-            {
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "Movie API V1");
-            });
             app.UseHttpsRedirection();
-            app.UseMvc(routeBuilder =>
+            app.UseAuthentication();
+            app.UseMvc(opt =>
             {
-                routeBuilder.EnableDependencyInjection();
-                routeBuilder.Expand().Select().Filter().Count().OrderBy();
+                opt.EnableDependencyInjection();
+                opt.Expand().Select().Filter().Count().OrderBy();
             });
         }
     }
